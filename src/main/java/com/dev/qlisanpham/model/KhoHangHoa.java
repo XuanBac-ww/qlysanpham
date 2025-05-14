@@ -21,5 +21,6 @@ public class KhoHangHoa {
 
     private Integer soLuong;
 
+
     // Getters and setters
 }

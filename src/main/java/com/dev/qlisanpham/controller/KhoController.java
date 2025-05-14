@@ -1,45 +1,110 @@
 package com.dev.qlisanpham.controller;
 
+import com.dev.qlisanpham.model.HangHoa;
 import com.dev.qlisanpham.model.Kho;
-import com.dev.qlisanpham.repository.KhoRepository;
+import com.dev.qlisanpham.model.KhoHangHoa;
+import com.dev.qlisanpham.service.HangHoaService;
+import com.dev.qlisanpham.service.KhoHangHoaService;
+import com.dev.qlisanpham.service.KhoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import java.util.List;
 
 @Controller
 @RequestMapping("/kho")
 public class KhoController {
     @Autowired
-    private KhoRepository repo;
+    private KhoService khoService;
 
-    @GetMapping
-    public String list(Model model) {
-        model.addAttribute("list", repo.findAll());
-        return "kho/list";
+    @Autowired
+    private HangHoaService hangHoaService;
+
+    @Autowired
+    private KhoHangHoaService khoHangHoaService;
+
+    // Nhập hàng hóa vào kho
+    @PostMapping("/nhapHang")
+    public String nhapHang(@RequestParam("maKho") Long maKho,
+                           @RequestParam("maHang") Long maHang,
+                           @RequestParam("soLuong") Integer soLuong, Model model) {
+        Kho kho = khoService.findById(maKho);
+        HangHoa hangHoa = hangHoaService.findById(maHang);
+
+        if (kho != null && hangHoa != null) {
+            KhoHangHoa khoHangHoa = khoHangHoaService.findByKhoAndHangHoa(kho, hangHoa);
+            if (khoHangHoa == null) {
+                khoHangHoa = new KhoHangHoa();
+                khoHangHoa.setKho(kho);
+                khoHangHoa.setHangHoa(hangHoa);
+                khoHangHoa.setSoLuong(soLuong);
+                khoHangHoaService.save(khoHangHoa);
+            } else {
+                khoHangHoa.setSoLuong(khoHangHoa.getSoLuong() + soLuong);
+                khoHangHoaService.save(khoHangHoa);
+            }
+            model.addAttribute("message", "Nhập hàng hóa thành công!");
+        } else {
+            model.addAttribute("message", "Không tìm thấy kho hoặc hàng hóa!");
+        }
+
+        return "redirect:/kho/xemDanhSachHangHoa";
     }
 
-    @GetMapping("/create")
-    public String createForm(Model model) {
-        model.addAttribute("kho", new Kho());
-        return "kho/form";
+    // Xuất hàng hóa từ kho
+    @PostMapping("/xuatHang")
+    public String xuatHang(@RequestParam("maKho") Long maKho,
+                           @RequestParam("maHang") Long maHang,
+                           @RequestParam("soLuong") Integer soLuong, Model model) {
+        Kho kho = khoService.findById(maKho);
+        HangHoa hangHoa = hangHoaService.findById(maHang);
+
+        if (kho != null && hangHoa != null) {
+            KhoHangHoa khoHangHoa = khoHangHoaService.findByKhoAndHangHoa(kho, hangHoa);
+            if (khoHangHoa != null && khoHangHoa.getSoLuong() >= soLuong) {
+                khoHangHoa.setSoLuong(khoHangHoa.getSoLuong() - soLuong);
+                khoHangHoaService.save(khoHangHoa);
+                model.addAttribute("message", "Xuất hàng hóa thành công!");
+            } else {
+                model.addAttribute("message", "Số lượng hàng hóa không đủ để xuất!");
+            }
+        } else {
+            model.addAttribute("message", "Không tìm thấy kho hoặc hàng hóa!");
+        }
+
+        return "redirect:/kho/xemDanhSachHangHoa";
     }
 
-    @PostMapping("/save")
-    public String save(@ModelAttribute Kho kho) {
-        repo.save(kho);
-        return "redirect:/kho";
+    // Kiểm tra tồn kho
+    @GetMapping("/kiemTraTonKho")
+    public String kiemTraTonKho(@RequestParam("maKho") Long maKho, @RequestParam("maHang") Long maHang, Model model) {
+        Kho kho = khoService.findById(maKho);
+        HangHoa hangHoa = hangHoaService.findById(maHang);
+
+        if (kho != null && hangHoa != null) {
+            KhoHangHoa khoHangHoa = khoHangHoaService.findByKhoAndHangHoa(kho, hangHoa);
+            if (khoHangHoa != null) {
+                model.addAttribute("message", "Tồn kho: " + khoHangHoa.getSoLuong() + " sản phẩm.");
+            } else {
+                model.addAttribute("message", "Hàng hóa không có trong kho.");
+            }
+        } else {
+            model.addAttribute("message", "Không tìm thấy kho hoặc hàng hóa!");
+        }
+
+        return "kiemTraTonKho";
     }
 
-    @GetMapping("/edit/{id}")
-    public String edit(@PathVariable Long id, Model model) {
-        model.addAttribute("kho", repo.findById(id).orElse(null));
-        return "kho/form";
-    }
-
-    @GetMapping("/delete/{id}")
-    public String delete(@PathVariable Long id) {
-        repo.deleteById(id);
-        return "redirect:/kho";
+    // Xem danh sách hàng hóa trong kho
+    @GetMapping("/xemDanhSachHangHoa")
+    public String xemDanhSachHangHoa(Model model) {
+        List<KhoHangHoa> khoHangHoas = khoHangHoaService.findAll();
+        model.addAttribute("khoHangHoas", khoHangHoas);
+        return "xemDanhSachHangHoa";
     }
 }
